@@ -76,8 +76,6 @@ public class IastCliSteps {
     private IastController iastController;
     @Autowired
     private IastService iastService;
-    @Autowired
-    private ADOIssueTracker adoIssueTracker;
 
     @Autowired
     private IastServiceRequests iastServiceRequests;
@@ -87,6 +85,8 @@ public class IastCliSteps {
     private GitHubIssueTracker gitHubIssueTracker;
     @Autowired
     private GitLabIssueTracker gitLabIssueTracker;
+    @Autowired
+    private ADOIssueTracker adoIssueTracker;
 
     private ApplicationArguments args;
 
@@ -216,8 +216,6 @@ public class IastCliSteps {
 
         Mockito.reset(jiraService, gitHubIssueTracker, gitLabIssueTracker);
 
-        this.iastService = new IastService(jiraService, iastProperties, iastServiceRequests, helperService,
-                gitHubIssueTracker, gitLabIssueTracker, adoIssueTracker, adoProperties);
         Scan scan = mockIastServiceRequestsApiScansScanTagFinish(scanTag);
         ScanVulnerabilities scanVulnerabilities = mockIastServiceRequestsApiScanVulnerabilities(scan);
         mockIastServiceRequestsApiScanResults(scan, scanVulnerabilities.getVulnerabilities().get(0));
@@ -278,8 +276,6 @@ public class IastCliSteps {
             case "azure":
                 issueTracker = adoIssueTracker;
                 break;
-            default:
-                throw new UnsupportedOperationException("Invalid bug tracker " + bugTracker);
         }
         if(issueTracker != null) {
             verify(issueTracker, times(createdIssues)).createIssue(any(), any());
