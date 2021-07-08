@@ -6,12 +6,14 @@ import com.checkmarx.flow.config.*;
 import com.checkmarx.flow.cucumber.integration.cli.IntegrationTestContext;
 import com.checkmarx.flow.custom.GitHubIssueTracker;
 import com.checkmarx.flow.custom.GitLabIssueTracker;
+import com.checkmarx.flow.custom.ADOIssueTracker;
 import com.checkmarx.flow.dto.BugTracker;
 import com.checkmarx.flow.dto.Issue;
 import com.checkmarx.flow.dto.ScanRequest;
 import com.checkmarx.flow.dto.iast.common.model.enums.ManagementResultState;
 import com.checkmarx.flow.dto.iast.common.model.enums.QueryDisplayType;
 import com.checkmarx.flow.dto.iast.manager.dto.*;
+import com.checkmarx.flow.dto.iast.manager.dto.description.VulnerabilityDescription;
 import com.checkmarx.flow.dto.iast.ql.utils.Severity;
 import com.checkmarx.flow.exception.IastThresholdsSeverityException;
 import com.checkmarx.flow.exception.MachinaException;
@@ -59,6 +61,7 @@ public class IastCliSteps {
     private GitHubIssueTracker gitHubIssueTracker = mock(GitHubIssueTracker.class);
     private GitLabIssueTracker gitLabIssueTracker = mock(GitLabIssueTracker.class);
     private IastServiceRequests iastServiceRequests = mock(IastServiceRequests.class);
+    private ADOIssueTracker adoIssueTracker = mock(ADOIssueTracker.class);
 
     private IastService iastService;
     private ApplicationArguments args;
@@ -137,7 +140,6 @@ public class IastCliSteps {
         }
         iastProperties.setFilterSeverity(filterSeverity);
 
-
         String[] thresholdsSeverityArray = thresholdsSeverity.split(",");
         Map<Severity, Integer> thresholdsSeverityMap = new HashMap<>();
         for (String s : thresholdsSeverityArray) {
@@ -147,7 +149,8 @@ public class IastCliSteps {
         iastProperties.setThresholdsSeverity(thresholdsSeverityMap);
 
 
-        this.iastService = new IastService(jiraService, iastProperties, iastServiceRequests, helperService, gitHubIssueTracker, gitLabIssueTracker);
+        this.iastService = new IastService(jiraService, iastProperties, iastServiceRequests, helperService,
+                gitHubIssueTracker, gitLabIssueTracker, adoIssueTracker, adoProperties);
         Scan scan = mockIastServiceRequestsApiScansScanTagFinish(scanTag);
         ScanVulnerabilities scanVulnerabilities = mockIastServiceRequestsApiScanVulnerabilities(scan);
         mockIastServiceRequestsApiScanResults(scan, scanVulnerabilities.getVulnerabilities().get(0));
@@ -186,7 +189,7 @@ public class IastCliSteps {
     public void checkHowManyCreateIssue(String createIssue, String bugTracker) {
         createIssue = removeQuotes(createIssue);
 
-        switch (bugTracker) {
+        switch (removeQuotes(bugTracker)) {
             case "jira":
                 verify(jiraService, times(Integer.parseInt(createIssue))).createIssue(any(), any());
                 break;
@@ -196,6 +199,11 @@ public class IastCliSteps {
             case "gitlabissue":
                 verify(gitLabIssueTracker, times(Integer.parseInt(createIssue))).createIssue(any(), any());
                 break;
+            case "azure":
+                verify(adoIssueTracker, times(Integer.parseInt(createIssue))).createIssue(any(),any());
+                break;
+            default:
+                throw new UnsupportedOperationException("Invalid bug tracker " + bugTracker);
         }
     }
 
@@ -206,6 +214,8 @@ public class IastCliSteps {
         when(gitHubIssueTracker.createIssue(any(), any())).thenReturn(new Issue());
 
         when(gitLabIssueTracker.createIssue(any(), any())).thenReturn(new Issue());
+
+        when(adoIssueTracker.createIssue(any(), any())).thenReturn(mock(Issue.class));
 
     }
 
@@ -231,6 +241,9 @@ public class IastCliSteps {
         scansResultsQuery.add(scansResultQuery);
 
         when(iastServiceRequests.apiScanResults(scan.getScanId(), vulnerabilityInfo.getId())).thenReturn(scansResultsQuery);
+        VulnerabilityDescription vulnerabilityDescription = mock(VulnerabilityDescription.class);
+        when(iastServiceRequests.apiVulnerabilitiesDescription(any(), any())).thenReturn(vulnerabilityDescription);
+        when(vulnerabilityDescription.getRisk()).thenReturn("MOCK_RISK");
     }
 
     @SneakyThrows

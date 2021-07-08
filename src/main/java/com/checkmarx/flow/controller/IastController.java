@@ -15,6 +15,7 @@ import com.checkmarx.flow.utils.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,16 +35,9 @@ public class IastController {
     @Autowired
     private IastService iastService;
     @Autowired
-    private JiraProperties jiraProperties;
-    @Autowired
-    private FlowProperties flowProperties;
-    @Autowired
     private CxFlowRunner cxFlowRunner;
-
     @Autowired
     private TokenUtils tokenUtils;
-    @Autowired
-    private JiraService jiraService;
 
     @PostMapping(value = {"/generate-tag"})
     public ResponseEntity<EventResponse> generateTag() {
@@ -54,7 +48,7 @@ public class IastController {
     }
 
     @PostMapping(value = {"/stop-scan-and-create-{tracker}-issue/{scanTag}"})
-    public ResponseEntity<EventResponse> stopScanAndCreateJiraIssue(
+    public ResponseEntity<EventResponse> stopScanAndCreateIssue(
             @PathVariable(value = "scanTag", required = false) String scanTag,
             @PathVariable(value = "tracker", required = false) String bugTrackerName,
             @RequestHeader(value = TOKEN_HEADER) String token,
@@ -63,24 +57,27 @@ public class IastController {
         tokenUtils.validateToken(token);
         try {
             ScanRequest request;
+            BugTracker.Type bugTrackerType;
             switch (bugTrackerName.toLowerCase()) {
                 case "jira":
-                    request = getRepoScanRequest(body, BugTracker.Type.JIRA);
+                    bugTrackerType = BugTracker.Type.JIRA;
                     break;
-
                 case "github":
                 case "githubissue":
-                    request = getRepoScanRequest(body, BugTracker.Type.GITHUBISSUE);
+                    bugTrackerType = BugTracker.Type.GITHUBISSUE;
                     break;
-
                 case "gitlab":
                 case "gitlabissue":
-                    request = getRepoScanRequest(body, BugTracker.Type.GITLABISSUE);
+                    bugTrackerType = BugTracker.Type.GITLABISSUE;
                     break;
-
+                case "azure":
+                    bugTrackerType = BugTracker.Type.AZURE;
+                    break;
                 default:
                     throw new NotImplementedException(bugTrackerName + ". That bug tracker not implemented.");
             }
+
+            request = getRepoScanRequest(body, bugTrackerType);
 
             iastService.stopScanAndCreateIssue(request, scanTag);
             return ResponseEntity.accepted().body(EventResponse.builder()
@@ -116,9 +113,19 @@ public class IastController {
                     .assignee(assignee)
                     .build();
         }
+
+        String altFields = null;
+        if(tracker == BugTracker.Type.AZURE) {
+            if (!Strings.isEmpty(assignee)) {
+                altFields = "System.AssignedTo:" + assignee;
+            }
+        }
+
         return ScanRequest.builder()
                 .bugTracker(bt)
+                .altProject(body.getBugTrackerProject())
                 .repoName(body.getRepoName())
+                .altFields(altFields)
                 .namespace(body.getNamespace())
                 .repoProjectId(body.getProjectId())
                 .product(ScanRequest.Product.CX)

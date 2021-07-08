@@ -38,3 +38,19 @@ And command line example: ”java -jar cx-flow-1.6.21.jar --spring.config.locati
       | cx-scan-22 | gitlabissue | HIGH,LOW,INFO        | HIGH=-1,MEDIUM=1,LOW=-1,INFO=-1  | 10        | 1            |
       | cx-scan-22 | gitlabissue | HIGH,MEDIUM,LOW,INFO | HIGH=-1,MEDIUM=1,LOW=1,INFO=-1   | 10        | 2            |
       | cx-scan-23 | gitlabissue | HIGH,MEDIUM,LOW,INFO | HIGH=-1,INFO=-1                  | 0         | 2            |
+
+      | cx-scan-1  | azure       | HIGH,MEDIUM,LOW,INFO | HIGH=-1,MEDIUM=-1,LOW=-1,INFO=-1 | 0         | 2            |
+      | cx-scan-2  | azure       | HIGH,MEDIUM,LOW,INFO | HIGH=-1,MEDIUM=-1,LOW=-1,INFO=-1 | 0         | 2            |
+      | cx-scan-2  | azure       | HIGH,MEDIUM          | HIGH=-1,MEDIUM=-1,LOW=-1,INFO=-1 | 0         | 1            |
+      | cx-scan-2  | azure       | HIGH                 | HIGH=-1,MEDIUM=-1,LOW=-1,INFO=-1 | 0         | 0            |
+      # the following case: when at least one MEDIUM issue is found, the execution should be ended with error
+      # (exit code = 10). All issues should be created (in this case two issues).
+      | cx-scan-2  | azure       | HIGH,MEDIUM,LOW,INFO | HIGH=-1,MEDIUM=1,LOW=-1,INFO=-1  | 10        | 2            |
+      # this next one fails as it as expected (exit code = 10) and just one issue is created, because the MEDIUM
+      # vulnerability was found and, since that a MEDIUM is not eligible to create an issue (it is not between
+      # filter-severity values), the execution is finished in error because of the thresholdsSeverity validation
+      # (MEDIUM is defined as 1 on thresholds severity values).
+      ### summing up: MEDIUM vulnerabilities does not create an issue, but when it is found the process FAIL (exit code = 10) ###
+      | cx-scan-2  | azure       | HIGH,LOW,INFO        | HIGH=-1,MEDIUM=1,LOW=-1,INFO=-1  | 10        | 1            |
+      | cx-scan-2  | azure       | HIGH,MEDIUM,LOW,INFO | HIGH=-1,MEDIUM=1,LOW=1,INFO=-1   | 10        | 2            |
+      | cx-scan-2  | azure       | HIGH,MEDIUM,LOW,INFO | HIGH=-1,INFO=-1                  | 0         | 2            |
