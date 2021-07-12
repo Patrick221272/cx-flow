@@ -299,7 +299,7 @@ public class CxFlowRunner implements ApplicationRunner {
                 repoType = ScanRequest.Repository.GITHUB;
 
                 if (ScanUtils.empty(namespace) || ScanUtils.empty(repoName)) {
-                    log.error("--namespace and --repo must be provided for GITHUBISSUE bug tracking");
+                    log.error("--namespace and --repo-name must be provided for GITHUBISSUE bug tracking");
                     exit(1);
                 }
                 repoUrl = getNonEmptyRepoUrl(namespace, repoName, repoUrl, gitHubProperties.getGitUri(namespace, repoName));
@@ -312,11 +312,10 @@ public class CxFlowRunner implements ApplicationRunner {
                         .build();
                 repoType = ScanRequest.Repository.GITLAB;
 
-                if (ScanUtils.empty(namespace) || ScanUtils.empty(repoName)) {
-                    log.error("--namespace and --repo must be provided for GITLABISSUE bug tracking");
+                if (ScanUtils.empty(projectId)) {
+                    log.error("--project-id must be provided for GITLABISSUE bug tracking");
                     exit(1);
                 }
-                repoUrl = getNonEmptyRepoUrl(namespace, repoName, repoUrl, gitLabProperties.getGitUri(namespace, repoName));
                 break;
             case GITLABMERGE:
             case gitlabmerge:
