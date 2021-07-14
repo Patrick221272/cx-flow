@@ -1,16 +1,14 @@
 package com.checkmarx.flow.controller;
 
 import com.checkmarx.flow.CxFlowRunner;
-import com.checkmarx.flow.config.FlowProperties;
-import com.checkmarx.flow.config.JiraProperties;
 import com.checkmarx.flow.dto.BugTracker;
 import com.checkmarx.flow.dto.EventResponse;
 import com.checkmarx.flow.dto.ScanRequest;
 import com.checkmarx.flow.dto.iast.CreateIssue;
 import com.checkmarx.flow.exception.IastThatPropertiesIsRequiredException;
+import com.checkmarx.flow.exception.InvalidTokenException;
 import com.checkmarx.flow.exception.JiraClientException;
 import com.checkmarx.flow.service.IastService;
-import com.checkmarx.flow.service.JiraService;
 import com.checkmarx.flow.utils.TokenUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.io.IOException;
+import java.security.InvalidParameterException;
 
 import static com.atlassian.sal.api.xsrf.XsrfHeaderValidator.TOKEN_HEADER;
 
@@ -52,10 +51,22 @@ public class IastController {
             @PathVariable(value = "scanTag", required = false) String scanTag,
             @PathVariable(value = "tracker", required = false) String bugTrackerName,
             @RequestHeader(value = TOKEN_HEADER) String token,
-            @RequestBody CreateIssue body) {
-        //Validate shared API token from header
-        tokenUtils.validateToken(token);
+            @RequestBody @Valid CreateIssue body) {
+
+        HttpStatus httpStatusReturn = HttpStatus.OK;
+        String returnMessage = "OK";
         try {
+            //Validate shared API token from header
+            tokenUtils.validateToken(token);
+
+            if (Strings.isBlank(bugTrackerName.trim())) {
+                throw new InvalidParameterException("tracker parameter cannot be empty.");
+            }
+
+            if (Strings.isBlank(scanTag)) {
+                throw new InvalidParameterException("scanTag parameter cannot be empty.");
+            }
+
             ScanRequest request;
             BugTracker.Type bugTrackerType;
             switch (bugTrackerName.toLowerCase()) {
@@ -80,19 +91,23 @@ public class IastController {
             request = getRepoScanRequest(body, bugTrackerType);
 
             iastService.stopScanAndCreateIssue(request, scanTag);
-            return ResponseEntity.accepted().body(EventResponse.builder()
-                    .message("OK")
-                    .success(true)
-                    .build());
-
+        } catch (InvalidTokenException e) {
+            log.error(e.getMessage(), e);
+            returnMessage = e.getMessage();
+            httpStatusReturn = HttpStatus.FORBIDDEN;
+        } catch (InvalidParameterException | NotImplementedException e) {
+            log.error(e.getMessage(), e);
+            returnMessage = e.getMessage();
+            httpStatusReturn = HttpStatus.BAD_REQUEST;
         } catch (IOException | JiraClientException | RuntimeException e) {
             log.error(e.getMessage(), e);
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(EventResponse.builder()
-                    .message(e.getMessage())
-                    .success(false)
-                    .build());
+            returnMessage = e.getMessage();
+            httpStatusReturn = HttpStatus.INTERNAL_SERVER_ERROR;
         }
+        return ResponseEntity.status(httpStatusReturn).body(EventResponse.builder()
+                .message(returnMessage)
+                .success(httpStatusReturn == HttpStatus.OK)
+                .build());
     }
 
     private ScanRequest getRepoScanRequest(CreateIssue body, BugTracker.Type tracker) {
